@@ -3,13 +3,14 @@ from pymongo import MongoClient
 from groq import Groq
 import os
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 import logging
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
+from config import Settings, detect_disaster_warnings
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -22,21 +23,10 @@ app = FastAPI(title="Weather Forecast Generator",
 # Get the directory where the script is located
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Add this near the top with other initializations
-templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-
-# Mount static files BEFORE any routes
-frontend_path = os.path.join(os.path.dirname(BASE_DIR), "frontend")
-app.mount("/static", StaticFiles(directory=frontend_path), name="static")
-
-@app.get("/")
-async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-# Add CORS middleware
+# Add CORS middleware with more permissive settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Allow all origins in development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,17 +38,23 @@ class ForecastRequest(BaseModel):
     style: Optional[str] = "balanced"  # balanced, detailed, casual, broadcast
     report_length: Optional[int] = 200  # Default to 200 words
     
-# Pydantic model for response
+# Pydantic model for disaster warning
+class DisasterWarning(BaseModel):
+    level: str  # severe, moderate, minor
+    message: str
+
+# Updated Pydantic model for response
 class ForecastResponse(BaseModel):
     date: str
     forecast: str
     data_used: Dict[str, Any]
+    disaster_warnings: Dict[str, DisasterWarning] = {}
 
 # Startup event to initialize connections
 @app.on_event("startup")
 async def startup_db_client():
     # Set up Groq API key
-    app.groq_api_key = os.getenv("GROQ_API_KEY", "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")
+    app.groq_api_key = os.getenv("GROQ_API_KEY", Settings.GROQ_API_KEY)
     if not app.groq_api_key:
         raise ValueError("Missing Groq API key. Set GROQ_API_KEY as an environment variable.")
     
@@ -67,11 +63,11 @@ async def startup_db_client():
     
     try:
         # Connect to MongoDB
-        mongo_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
+        mongo_uri = os.getenv("MONGODB_URI", Settings.MONGO_URI)
         app.mongodb_client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
         # Test the connection
         app.mongodb_client.admin.command('ping')
-        app.db = app.mongodb_client["weather_data"]
+        app.db = app.mongodb_client[Settings.DB_NAME]
         
         # Ensure the collection exists
         if "weather_data" not in app.db.list_collection_names():
@@ -109,41 +105,84 @@ async def generate_forecast(request: ForecastRequest):
         if not hasattr(app, 'db') or app.db is None:
             raise HTTPException(status_code=503, detail="Database connection is not available")
         
-        # Query MongoDB with exact date match
-        collection = app.db["chennai_weather"]
-        query = {"date": {"$regex": f"^{formatted_date}"}}  # Matches any time on the given date
-        fields = { 
-            "_id": 0,
-            "date": 1,
-            "temperature_2m": 1,
-            "relative_humidity_2m": 1,
-            "dew_point_2m": 1,
-            "apparent_temperature": 1,
-            "precipitation": 1,
-            "rain": 1,
-            "snowfall": 1,
-            "snow_depth": 1,
-            "pressure_msl": 1,
-            "surface_pressure": 1,
-            "cloud_cover": 1,
-            "cloud_cover_low": 1,
-            "cloud_cover_mid": 1,
-            "cloud_cover_high": 1,
-            "wind_speed_10m": 1,
-            "wind_speed_100m": 1,
-            "wind_direction_10m": 1,
-            "wind_direction_100m": 1,
-            "wind_gusts_10m": 1,
-        }
-        logger.info(f"MongoDB query: {query}")
+        # Query MongoDB with exact date match - try both collection names
+        weather_data = None
         
-        weather_data = collection.find_one(query, fields)
-        logger.info(f"MongoDB result: {weather_data}")
+        # Try different collections and query formats
+        collections_to_try = ["chennai_weather", "weather_data"]
         
+        for collection_name in collections_to_try:
+            if collection_name in app.db.list_collection_names():
+                collection = app.db[collection_name]
+                
+                # Try exact date format first
+                query1 = {"date": formatted_date}
+                
+                # Also try with regex to match date at beginning of string (for datetime fields)
+                query2 = {"date": {"$regex": f"^{formatted_date}"}}
+                
+                # Try different date formats that might be in the database
+                query3 = {"date": f"{formatted_date}T00:00:00Z"}
+                query4 = {"date": f"{formatted_date} 00:00:00+00:00"}
+                
+                fields = { 
+                    "_id": 0,
+                    "date": 1,
+                    "temperature_2m": 1,
+                    "relative_humidity_2m": 1,
+                    "dew_point_2m": 1,
+                    "apparent_temperature": 1,
+                    "precipitation": 1,
+                    "rain": 1,
+                    "snowfall": 1,
+                    "snow_depth": 1,
+                    "pressure_msl": 1,
+                    "surface_pressure": 1,
+                    "cloud_cover": 1,
+                    "cloud_cover_low": 1,
+                    "cloud_cover_mid": 1,
+                    "cloud_cover_high": 1,
+                    "wind_speed_10m": 1,
+                    "wind_speed_100m": 1,
+                    "wind_direction_10m": 1,
+                    "wind_direction_100m": 1,
+                    "wind_gusts_10m": 1,
+                }
+                
+                # Try each query
+                for query in [query1, query2, query3, query4]:
+                    logger.info(f"Trying MongoDB query on {collection_name}: {query}")
+                    result = collection.find_one(query, fields)
+                    if result:
+                        weather_data = result
+                        logger.info(f"Found data in collection {collection_name} with query {query}")
+                        break
+                
+                if weather_data:
+                    break
+        
+        # If no data found, log available data for debugging
         if not weather_data:
             logger.warning(f"No weather data found for date: {formatted_date}")
-            raise HTTPException(status_code=404, detail=f"No weather data found for {formatted_date}")
-
+            
+            # Log a sample of data to help debug
+            for collection_name in collections_to_try:
+                if collection_name in app.db.list_collection_names():
+                    collection = app.db[collection_name]
+                    sample = list(collection.find().limit(1))
+                    if sample:
+                        logger.info(f"Sample data from {collection_name}: {sample}")
+                        
+                    # Check date format in the collection
+                    dates_sample = list(collection.find({}, {"date": 1, "_id": 0}).limit(5))
+                    if dates_sample:
+                        logger.info(f"Sample dates from {collection_name}: {dates_sample}")
+            
+            raise HTTPException(status_code=404, detail=f"No weather data found for {formatted_date}. Please try a different date between 2024-01-01 and 2026-02-18.")
+        
+        # Apply disaster warning detection rules
+        disaster_warnings = detect_disaster_warnings(weather_data)
+        
         # Determine style instruction based on request
         style_instructions = {
             "balanced": "Vary the summary format. Sometimes make it detailed and scientific, other times casual and conversational.",
@@ -154,12 +193,31 @@ async def generate_forecast(request: ForecastRequest):
         
         style_text = style_instructions.get(request.style, style_instructions["balanced"])
         
-        # Construct the dynamic prompt with specific word count instruction
+        # Create a formatted warnings section for the LLM
+        warnings_section = ""
+        if disaster_warnings:
+            warnings_section = "\n\nWeather Warnings:\n\n"
+            for warning_type, warning_info in disaster_warnings.items():
+                severity = warning_info['level'].upper()
+                warnings_section += f"- {severity}: {warning_info['message']}\n"
+        else:
+            warnings_section = "\n\nWeather Warnings:\n\nNo weather warnings for this date.\n"
+        
+        # Add instruction to include the warnings section
+        instructions_for_warnings = """
+        Important: Make sure to include a 'Weather Warnings' section in your response,
+        with the exact warnings provided below. Do not use markdown formatting like # or **.
+        Format the warnings as a simple text section with the same style as your forecast.
+        Include this section at the end of your forecast.
+        """
+        
+        # Construct the dynamic prompt with specific word count instruction and warnings
         prompt = f"""
         Generate a weather forecast for {request.date} that is EXACTLY {request.report_length} words long.
         Base the forecast on the following weather data.
         Do not mention "today" or "tomorrow"—just focus on the future weather for this date.
         {style_text}
+        {instructions_for_warnings}
         Make sure the response is engaging and natural.
         
         Weather data:
@@ -172,8 +230,11 @@ async def generate_forecast(request: ForecastRequest):
         - Cloud Cover: {weather_data.get('cloud_cover', 'N/A')}% (Low: {weather_data.get('cloud_cover_low', 'N/A')}%, Mid: {weather_data.get('cloud_cover_mid', 'N/A')}%, High: {weather_data.get('cloud_cover_high', 'N/A')}%)
         - Wind: {weather_data.get('wind_speed_10m', 'N/A')} km/h at 10m, gusting to {weather_data.get('wind_gusts_10m', 'N/A')} km/h
         
-        Remember: The response must be EXACTLY {request.report_length} words. Not more, not less.
+        {warnings_section}
+        
+        Remember: The response must be EXACTLY {request.report_length} words long. Not more, not less.
         Make the forecast natural and engaging while maintaining accuracy.
+        Include the WEATHER WARNINGS section at the end of your forecast.
         """
 
         # Send the prompt to Groq's LLM with adjusted temperature for more consistent length
@@ -197,11 +258,12 @@ async def generate_forecast(request: ForecastRequest):
             logger.error(f"Error from Groq API: {str(e)}")
             raise HTTPException(status_code=502, detail=f"Error from language model service: {str(e)}")
         
-        # Return response with forecast and data used
+        # Return response with forecast, data used, and disaster warnings
         return ForecastResponse(
             date=request.date,
             forecast=forecast,
-            data_used=weather_data
+            data_used=weather_data,
+            disaster_warnings=disaster_warnings
         )
         
     except HTTPException:
@@ -220,3 +282,14 @@ async def health_check():
         "database": db_status,
         "timestamp": datetime.now().isoformat()
     }
+
+# Now mount static files - at a prefix that won't conflict with API routes
+frontend_path = os.path.join(os.path.dirname(BASE_DIR), "frontend")
+
+# Create a specific route for file:// protocol access
+@app.get("/api")
+async def api_info():
+    return {"message": "API is running. You can use /api/generate_forecast for weather forecasts."}
+
+# Mount frontend files
+app.mount("/", StaticFiles(directory=frontend_path, html=True), name="static")

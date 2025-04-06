@@ -34,7 +34,17 @@ async function handleWeatherSubmit(e) {
 
   try {
     console.log('Sending request for date:', date, 'report length:', reportLength);
-    const response = await fetch('http://localhost:8000/api/generate_forecast', {
+    
+    // Check if we're running from file:// protocol
+    const isFileProtocol = window.location.protocol === 'file:';
+    
+    // Use the appropriate server URL based on how the app is loaded
+    const baseUrl = isFileProtocol ? 'http://localhost:8000' : '';
+    const apiUrl = `${baseUrl}/api/generate_forecast`;
+    
+    console.log('Using API URL:', apiUrl);
+    
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -43,16 +53,27 @@ async function handleWeatherSubmit(e) {
       body: JSON.stringify({
         date: date,
         style: 'balanced',
-        report_length: parseInt(reportLength)  // Add report length to request
+        report_length: parseInt(reportLength)
       }),
     });
 
     console.log('Response status:', response.status);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error response:', errorText);
-      throw new Error(errorText || 'Failed to get forecast');
+      let errorMessage = 'Failed to get forecast';
+      
+      if (response.status === 404) {
+        errorMessage = `No weather data found for ${date}. Please try a date between January 1, 2024 and February 18, 2026.`;
+      } else {
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorMessage;
+        } catch (e) {
+          errorMessage = await response.text();
+        }
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
@@ -73,11 +94,18 @@ async function handleWeatherSubmit(e) {
     
   } catch (error) {
     console.error('Error in handleWeatherSubmit:', error);
+    let errorMessage = error.message;
+    
     if (error.message === 'Failed to fetch') {
-      showError('Failed to connect to the server. Please try again later.');
-    } else {
-      showError(error.message);
+      const isFileProtocol = window.location.protocol === 'file:';
+      if (isFileProtocol) {
+        errorMessage = 'Unable to connect to server. When running from a file:// URL, please ensure the FastAPI server is running at http://localhost:8000';
+      } else {
+        errorMessage = 'Unable to connect to server. Please ensure the FastAPI server is running.';
+      }
     }
+    
+    showError(errorMessage);
   }
   
   // Clear input after sending
@@ -147,7 +175,18 @@ function createWeatherCard(weatherData) {
 
   const response = document.createElement('div');
   response.className = 'weather-response';
-  response.innerHTML = marked.parse(weatherData.forecast);
+  
+  // Process the forecast text to ensure the warnings are properly styled
+  let forecastText = weatherData.forecast;
+  
+  // Check if there are actual warnings from the API response
+  if (weatherData.disaster_warnings && Object.keys(weatherData.disaster_warnings).length > 0) {
+    // Find and style the warnings section without relying on markdown characters
+    const warningRegex = /(Weather Warnings:[\s\S]*?)(?=\n\n|$)/g;
+    forecastText = forecastText.replace(warningRegex, '<div class="highlighted-warnings">$1</div>');
+  }
+  
+  response.innerHTML = marked.parse(forecastText);
 
   // Add a hint text
   const hintText = document.createElement('div');
