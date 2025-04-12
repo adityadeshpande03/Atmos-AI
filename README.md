@@ -26,21 +26,40 @@ This project uses a combination of technologies to deliver accurate and natural-
 - **Database**: MongoDB (storing LSTM-trained predictions)
 - **AI/ML**: 
   - LSTM for weather prediction training
-  - Groq LLM for natural language generation
+  - "llama-4-scout-17b-16e-instruct" AI model for natural language generation
 - **APIs**: RESTful endpoints for forecast generation
 
 ## Getting Started
 
-1. Clone the repository
-2. Install dependencies:
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/atmos-ai-chennai-weather.git
+cd atmos-ai-chennai-weather
+```
+
+2. Create and activate virtual environment:
+```bash
+python -m venv venv
+.\venv\Scripts\activate  # On Windows
+source venv/bin/activate # On Unix/MacOS
+```
+
+3. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
-3. Start the FastAPI server:
+
+4. Start the MongoDB service:
+```bash
+mongod --dbpath data/db
+```
+
+5. Start the FastAPI server:
 ```bash
 uvicorn src.app:app --reload --port 8000
 ```
-4. Open `frontend/index.html` in your browser
+
+6. Open `frontend/index.html` in your browser
 
 ## Data Flow
 
@@ -52,6 +71,15 @@ uvicorn src.app:app --reload --port 8000
    - Generates natural language forecasts using Groq LLM
    - Returns formatted response to the frontend
 
+## Environment Setup
+
+The project requires the following environment variables:
+```bash
+MONGODB_URI=mongodb://localhost:27017
+GROQ_API_KEY=your_groq_api_key
+```
+
 ## Note
 
 The weather predictions available in this system are based on LSTM-trained models and should be used for demonstration purposes only. Always refer to official weather services for critical weather-related decisions.
+
