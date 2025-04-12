@@ -26,8 +26,45 @@ This project uses a combination of technologies to deliver accurate and natural-
 - **Database**: MongoDB (storing LSTM-trained predictions)
 - **AI/ML**: 
   - LSTM for weather prediction training
-  - "llama-4-scout-17b-16e-instruct" AI model for natural language generation
+  - Groq LLM for natural language generation
 - **APIs**: RESTful endpoints for forecast generation
+
+## Data Preparation and LSTM Training
+
+1. Prepare your historical weather data in CSV format:
+```csv
+date,temperature,humidity,precipitation,wind_speed,pressure
+2024-01-01,28.5,75,0.2,12,1012
+```
+
+2. Train the LSTM model:
+```bash
+python src/train_lstm.py --input data/weather_history.csv --epochs 100 --batch_size 32
+```
+
+3. Generate predictions using trained model:
+```bash
+python src/generate_predictions.py --model models/lstm_model.h5 --forecast_days 365
+```
+
+4. Import predictions to MongoDB:
+```bash
+python src/import_to_mongodb.py --predictions predictions.csv
+```
+
+MongoDB document structure:
+```json
+{
+    "date": "2025-01-01",
+    "predictions": {
+        "temperature": 28.5,
+        "humidity": 75.0,
+        "precipitation": 0.2,
+        "wind_speed": 12.0,
+        "pressure": 1012.0
+    }
+}
+```
 
 ## Getting Started
 
@@ -79,7 +116,7 @@ MONGODB_URI=mongodb://localhost:27017
 GROQ_API_KEY=your_groq_api_key
 ```
 
+
 ## Note
 
 The weather predictions available in this system are based on LSTM-trained models and should be used for demonstration purposes only. Always refer to official weather services for critical weather-related decisions.
-
