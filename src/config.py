@@ -11,7 +11,7 @@ class Settings:
     MONGO_URI = "mongodb://localhost:27017/"
     DB_NAME = "weather_data"
     COLLECTION_NAME = "weather_data"
-    GROQ_API_KEY = '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'
+    GROQ_API_KEY = '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'
     
     # Updated disaster warning thresholds with lower values to detect even minor warnings
     DISASTER_THRESHOLDS = {
