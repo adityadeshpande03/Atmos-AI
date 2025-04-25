@@ -70,7 +70,7 @@ MongoDB document structure:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/atmos-ai-chennai-weather.git
+git clone https://github.com/adityadeshpande03/atmos-ai-chennai-weather.git
 cd atmos-ai-chennai-weather
 ```
 
