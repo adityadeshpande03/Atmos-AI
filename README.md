@@ -96,7 +96,7 @@ mongod --dbpath data/db
 uvicorn src.app:app --reload --port 8000
 ```
 
-6. Open `frontend/index.html` in your browser
+6. Open `frontend_prod_level/index.html` in your browser
 
 ## Data Flow
 
