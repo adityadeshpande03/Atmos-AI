@@ -203,6 +203,10 @@ body {
   text-align: justify;
 }
 
+.weather-forecast p {
+  margin-bottom: 1rem;
+}
+
 .weather-forecast.visible {
   max-height: 1000px;
 }
