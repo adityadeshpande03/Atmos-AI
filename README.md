@@ -14,7 +14,7 @@ This project uses a combination of technologies to deliver accurate and natural-
 ## Features
 
 - Interactive date selection up to February 18, 2026
-- Customizable forecast length (100-500 words)
+- Customizable forecast length (100-300 words)
 - Real-time weather data visualization
 - Automatic disaster warnings detection
 - Responsive web interface
