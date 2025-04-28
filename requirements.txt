@@ -11,5 +11,4 @@ numpy
 tensorflow
 matplotlib
 pandas
-'tensorflow[and-cuda]'
 scikit-learn
