@@ -8,10 +8,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class Settings:
-    MONGO_URI = "mongodb://localhost:27017/"
-    DB_NAME = "weather_data"
-    COLLECTION_NAME = "weather_data"
-    GROQ_API_KEY = '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'
+    MONGO_URI = "mongo_uri"
+    DB_NAME = "db_name"
+    COLLECTION_NAME = "collection_name"
+    GROQ_API_KEY = 'your_groq_api_key'
 
 def get_db():
     """Creates database connection"""
