@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ATMOS.AI</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- 3D Globe Sidebar -->
+    <div class="globe-sidebar">
+      <div class="globe-container"></div>
+      <div class="location-info">
+        <h2>Weather Forecast</h2>
+        <p>Select a date to view detailed weather predictions</p>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="chat-header">
+        <h1>ATMOS.AI</h1>
+      </div>
+
+      <div class="chat-container" id="chatContainer">
+        <!-- Welcome message -->
+        <div class="welcome-message bot-message">
+          <h2>Welcome to Atmos AI</h2>
+          <p>Weather data available till February 18, 2026 to get a detailed weather forecast. Choose your preferred report length and discover what the weather has in store.</p>
+        </div>
+      </div>
+
+      <!-- Input Panel -->
+      <div class="input-panel">
+        <form id="weatherForm" class="input-form">
+          <div class="date-input">
+            <input type="text" id="date" placeholder="Select date" data-input required>
+          </div>
+          <select id="reportLength" class="report-length">
+            <option value="100">Brief (100 words)</option>
+            <option value="200" selected>Standard (200 words)</option>
+            <option value="300">Detailed (300 words)</option>
+            <!-- <option value="500">Comprehensive (500 words)</option> -->
+          </select>
+          <button type="submit" class="submit-btn">Generate Forecast</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Message -->
+  <div id="error" class="error-message"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
