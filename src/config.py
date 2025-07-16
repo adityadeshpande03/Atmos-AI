@@ -8,10 +8,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class Settings:
-    MONGO_URI = "mongodb://localhost:27017/"
-    DB_NAME = "weather_data"
-    COLLECTION_NAME = "weather_data"
-    GROQ_API_KEY = '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'
+    MONGO_URI = "mongo_uri"
+    DB_NAME = "db_name"
+    COLLECTION_NAME = "collection_name"
+    GROQ_API_KEY = 'your_groq_api_key'
     
     # Updated disaster warning thresholds with lower values to detect even minor warnings
     DISASTER_THRESHOLDS = {
